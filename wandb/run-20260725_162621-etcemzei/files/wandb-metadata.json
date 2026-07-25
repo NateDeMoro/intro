@@ -1,0 +1,17 @@
+{
+  "os":  "macOS-26.5.2-arm64-arm-64bit",
+  "python":  "CPython 3.11.15",
+  "startedAt":  "2026-07-25T23:26:21.490019Z",
+  "args":  [
+    "--config",
+    "configs/logistic_regression.yaml"
+  ],
+  "program":  "/Users/natedemoro/Code/MLE/intro/scripts/train.py",
+  "codePath":  "scripts/train.py",
+  "codePathLocal":  "scripts/train.py",
+  "email":  "nathanieldemoro@gmail.com",
+  "root":  "/Users/natedemoro/Code/MLE/intro",
+  "host":  "Nates-MacBook-Air.local",
+  "executable":  "/Users/natedemoro/Code/MLE/intro/.venv/bin/python3",
+  "writerId":  "ku6vzkce5r1h3up4h6n87xjqy0oohs8y"
+}

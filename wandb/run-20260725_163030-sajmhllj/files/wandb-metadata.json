@@ -1,0 +1,15 @@
+{
+  "os":  "macOS-26.5.2-arm64-arm-64bit",
+  "python":  "CPython 3.11.15",
+  "startedAt":  "2026-07-25T23:30:30.495615Z",
+  "args":  [
+    "random_forest"
+  ],
+  "program":  "/Users/natedemoro/Code/MLE/intro/.venv/bin/train",
+  "codePath":  ".venv/bin/train",
+  "email":  "nathanieldemoro@gmail.com",
+  "root":  "/Users/natedemoro/Code/MLE/intro",
+  "host":  "Nates-MacBook-Air.local",
+  "executable":  "/Users/natedemoro/Code/MLE/intro/.venv/bin/python3",
+  "writerId":  "os3eb2di8ca0e5sizn48iacw7n1qou07"
+}

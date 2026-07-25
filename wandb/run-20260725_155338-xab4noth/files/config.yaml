@@ -1,0 +1,42 @@
+_wandb:
+    value:
+        cli_version: 0.28.1
+        e:
+            b5mts3qxi8nbj0argi7gcvuuw7944kuw:
+                args:
+                    - --config
+                    - configs/logistic_regression.yaml
+                codePath: train.py
+                codePathLocal: train.py
+                email: nathanieldemoro@gmail.com
+                executable: /Users/natedemoro/Code/MLE/intro/.venv/bin/python3
+                host: Nates-MacBook-Air.local
+                os: macOS-26.5.2-arm64-arm-64bit
+                program: /Users/natedemoro/Code/MLE/intro/train.py
+                python: CPython 3.11.15
+                root: /Users/natedemoro/Code/MLE/intro
+                startedAt: "2026-07-25T22:53:38.815124Z"
+                writerId: b5mts3qxi8nbj0argi7gcvuuw7944kuw
+        m: []
+        python_version: 3.11.15
+        t:
+            "1":
+                - 5
+                - 53
+            "2":
+                - 5
+                - 53
+            "3":
+                - 2
+                - 13
+                - 16
+            "4": 3.11.15
+            "5": 0.28.1
+            "12": 0.28.1
+            "13": darwin-arm64
+features:
+    value: pclass_onehot+male_x_3rdclass
+max_iter:
+    value: 1000
+model:
+    value: logistic_regression

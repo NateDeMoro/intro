@@ -1,0 +1,34 @@
+{
+  "os":  "macOS-26.5.2-arm64-arm-64bit",
+  "python":  "CPython 3.11.15",
+  "startedAt":  "2026-07-24T04:07:49.890408Z",
+  "program":  "/Users/natedemoro/Code/MLE/intro/explore.ipynb",
+  "codePath":  "/Users/natedemoro/Code/MLE/intro/explore.ipynb",
+  "codePathLocal":  "explore.ipynb",
+  "email":  "nathanieldemoro@gmail.com",
+  "root":  "/Users/natedemoro/Code/MLE/intro",
+  "host":  "Nates-MacBook-Air.local",
+  "executable":  "/Users/natedemoro/Code/MLE/intro/.venv/bin/python",
+  "cpu_count":  10,
+  "cpu_count_logical":  10,
+  "disk":  {
+    "/":  {
+      "total":  "494332366848",
+      "used":  "92328689664"
+    }
+  },
+  "memory":  {
+    "total":  "17179869184"
+  },
+  "apple":  {
+    "name":  "Apple M5",
+    "ecpuCores":  6,
+    "pcpuCores":  4,
+    "gpuCores":  10,
+    "memoryGb":  16,
+    "swapTotalBytes":  "2147483648",
+    "ramTotalBytes":  "17179869184",
+    "macModel":  "Mac17,4"
+  },
+  "writerId":  "yhmm5jkjvno2l0uhjnx2x28jnvbtrchd"
+}

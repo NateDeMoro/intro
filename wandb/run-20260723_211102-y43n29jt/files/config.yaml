@@ -1,0 +1,40 @@
+_wandb:
+    value:
+        cli_version: 0.28.1
+        e:
+            jib3akzr8l1zaezooxequnkwbxkxt9tc:
+                codePath: /Users/natedemoro/Code/MLE/intro/explore.ipynb
+                codePathLocal: explore.ipynb
+                email: nathanieldemoro@gmail.com
+                executable: /Users/natedemoro/Code/MLE/intro/.venv/bin/python
+                host: Nates-MacBook-Air.local
+                os: macOS-26.5.2-arm64-arm-64bit
+                program: /Users/natedemoro/Code/MLE/intro/explore.ipynb
+                python: CPython 3.11.15
+                root: /Users/natedemoro/Code/MLE/intro
+                startedAt: "2026-07-24T04:11:02.057097Z"
+                writerId: jib3akzr8l1zaezooxequnkwbxkxt9tc
+        m: []
+        python_version: 3.11.15
+        t:
+            "1":
+                - 5
+                - 53
+                - 105
+            "2":
+                - 5
+                - 53
+                - 105
+            "3":
+                - 2
+                - 16
+            "4": 3.11.15
+            "5": 0.28.1
+            "8":
+                - 1
+            "12": 0.28.1
+            "13": darwin-arm64
+max_iter:
+    value: 1000
+model:
+    value: LogisticRegression

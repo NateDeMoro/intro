@@ -1,0 +1,6 @@
+# the wandb run name comes from this file's name -- rename the file to rename the run
+model: random_forest
+features: pclass_onehot+male_x_3rdclass
+params:
+  n_estimators: 100
+  random_state: 42

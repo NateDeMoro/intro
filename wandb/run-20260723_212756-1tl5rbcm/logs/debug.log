@@ -1,0 +1,29 @@
+2026-07-23 21:27:56,273 INFO    MainThread:98350 [wandb_setup.py:_flush():81] Current SDK version is 0.28.1
+2026-07-23 21:27:56,273 INFO    MainThread:98350 [wandb_setup.py:_flush():81] Configure stats pid to 98350
+2026-07-23 21:27:56,273 INFO    MainThread:98350 [wandb_setup.py:_flush():81] Loading settings from environment variables
+2026-07-23 21:27:56,273 INFO    MainThread:98350 [wandb_init.py:setup_run_log_directory():729] Logging user logs to /Users/natedemoro/Code/MLE/intro/wandb/run-20260723_212756-1tl5rbcm/logs/debug.log
+2026-07-23 21:27:56,273 INFO    MainThread:98350 [wandb_init.py:setup_run_log_directory():730] Logging internal logs to /Users/natedemoro/Code/MLE/intro/wandb/run-20260723_212756-1tl5rbcm/logs/debug-internal.log
+2026-07-23 21:27:56,273 INFO    MainThread:98350 [wandb_init.py:monkeypatch_ipython():648] configuring jupyter hooks <wandb.sdk.wandb_init._WandbInit object at 0x118d38b50>
+2026-07-23 21:27:56,274 INFO    MainThread:98350 [wandb_init.py:init():772] calling init triggers
+2026-07-23 21:27:56,274 INFO    MainThread:98350 [wandb_init.py:init():777] wandb.init called with sweep_config: {}
+config: {'model': 'LogisticRegression', 'max_iter': 1000, '_wandb': {}}
+2026-07-23 21:27:56,274 INFO    MainThread:98350 [wandb_init.py:init():820] starting backend
+2026-07-23 21:27:56,274 INFO    MainThread:98350 [wandb_init.py:init():835] sending inform_init request
+2026-07-23 21:27:56,386 INFO    MainThread:98350 [wandb_init.py:init():840] backend started and connected
+2026-07-23 21:27:56,396 INFO    MainThread:98350 [wandb_run.py:_label_probe_notebook():1276] probe notebook
+2026-07-23 21:27:56,397 INFO    MainThread:98350 [wandb_init.py:init():910] updated telemetry
+2026-07-23 21:27:56,425 INFO    MainThread:98350 [wandb_init.py:init():933] communicating run to backend with 90.0 second timeout
+2026-07-23 21:27:57,006 INFO    MainThread:98350 [wandb_init.py:init():978] starting run threads in backend
+2026-07-23 21:27:57,077 INFO    MainThread:98350 [wandb_run.py:_console_start():2621] atexit reg
+2026-07-23 21:27:57,077 INFO    MainThread:98350 [wandb_run.py:_redirect():2471] redirect: wrap_raw
+2026-07-23 21:27:57,077 INFO    MainThread:98350 [wandb_run.py:_redirect():2540] Wrapping output streams.
+2026-07-23 21:27:57,077 INFO    MainThread:98350 [wandb_run.py:_redirect():2563] Redirects installed.
+2026-07-23 21:27:57,079 INFO    MainThread:98350 [wandb_init.py:init():1016] run started, returning control to user process
+2026-07-23 21:27:57,084 INFO    MainThread:98350 [wandb_run.py:_finish():2383] finishing run nathanieldemoro-nuclearn/titanic/1tl5rbcm
+2026-07-23 21:27:57,557 INFO    MainThread:98350 [jupyter.py:save_history():435] not saving jupyter history
+2026-07-23 21:27:57,557 INFO    MainThread:98350 [jupyter.py:save_ipynb():362] not saving jupyter notebook
+2026-07-23 21:27:57,557 INFO    MainThread:98350 [wandb_init.py:_jupyter_teardown():633] cleaning up jupyter logic
+2026-07-23 21:27:57,557 INFO    MainThread:98350 [wandb_run.py:_atexit_cleanup():2588] got exitcode: 0
+2026-07-23 21:27:57,557 INFO    MainThread:98350 [wandb_run.py:_restore():2570] restore
+2026-07-23 21:27:57,557 INFO    MainThread:98350 [wandb_run.py:_restore():2576] restore done
+2026-07-23 21:27:58,633 INFO    MainThread:98350 [wandb_run.py:_footer_sync_info():3993] logging synced files
