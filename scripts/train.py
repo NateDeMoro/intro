@@ -4,10 +4,16 @@ from pathlib import Path
 
 import pandas as pd
 import yaml
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import StratifiedKFold, cross_validate
+from sklearn.model_selection import (
+    GridSearchCV,
+    RandomizedSearchCV,
+    StratifiedKFold,
+    cross_validate,
+)
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 from ml_utils import log_cv_results
 from preprocessing import build_preprocessing_pipeline
@@ -15,6 +21,7 @@ from preprocessing import build_preprocessing_pipeline
 MODELS = {
     "logistic_regression": LogisticRegression,
     "random_forest": RandomForestClassifier,
+    "gradient_boosting": HistGradientBoostingClassifier,
 }
 
 # anchor paths to the project root rather than the shell's cwd, so the command
@@ -47,25 +54,84 @@ def main():
     model_cls = MODELS[config["model"]]
     params = config.get("params", {})
     features = config.get("features", [])
-    pipeline = Pipeline(
-        [
-            ("preprocessing", build_preprocessing_pipeline(features)),
-            ("model", model_cls(**params)),
-        ]
-    )
+    search = config.get("search", {})
+
+    steps = [("preprocessing", build_preprocessing_pipeline(features))]
+    if config.get("scale"):
+        # only meaningful for models that care about feature magnitude (linear ones);
+        # fitted per fold by cross_validate, so it can't leak
+        steps.append(("scale", StandardScaler()))
+    steps.append(("model", model_cls(**params)))
+    pipeline = Pipeline(steps)
+
+    estimator = pipeline
+    if search:
+        # "model__C" addresses the C argument of the "model" step inside the pipeline
+        grid = {f"model__{key}": values for key, values in search.items()}
+        # this inner split picks the parameters; the outer split below scores the result.
+        # Scoring on the same folds used to pick would be optimistic, since the winner
+        # was chosen to suit those exact folds
+        inner_cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=0)
+        n_iter = config.get("n_iter")
+        if n_iter:
+            # sample n_iter combinations instead of all of them -- cheaper, and better
+            # per unit of compute once the grid has more than a couple of dimensions
+            estimator = RandomizedSearchCV(
+                pipeline,
+                grid,
+                n_iter=n_iter,
+                cv=inner_cv,
+                scoring="accuracy",
+                n_jobs=-1,
+                random_state=42,
+            )
+        else:
+            estimator = GridSearchCV(
+                pipeline, grid, cv=inner_cv, scoring="accuracy", n_jobs=-1
+            )
 
     # each fold refits the whole pipeline -- including preprocessing -- on that
     # fold's training portion alone, so imputation/encoding never sees that
     # fold's held-out rows
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     cv_results = cross_validate(
-        pipeline, X, y, cv=cv, scoring=["accuracy", "precision", "recall", "f1"]
+        estimator, X, y, cv=cv, scoring=["accuracy", "precision", "recall", "f1"]
     )
+
+    best_params = None
+    if search:
+        # refit over all the data to report the parameters you'd actually ship
+        estimator.fit(X, y)
+        best_params = {
+            key.removeprefix("model__"): value
+            for key, value in estimator.best_params_.items()
+        }
+        ranked = sorted(
+            zip(
+                estimator.cv_results_["params"],
+                estimator.cv_results_["mean_test_score"],
+            ),
+            key=lambda pair: pair[1],
+            reverse=True,
+        )
+        print(f"top 5 of {len(ranked)} combinations tried:")
+        for tried, score in ranked[:5]:
+            label = ", ".join(
+                f"{k.removeprefix('model__')}={v}" for k, v in sorted(tried.items())
+            )
+            print(f"  {score:.3f}  {label}")
 
     log_cv_results(
         cv_results,
         project="titanic",
-        config={"model": config["model"], **params, "features": features},
+        config={
+            "model": config["model"],
+            **params,
+            "features": features,
+            "scale": bool(config.get("scale")),
+            "search": search or None,
+            "best_params": best_params,
+        },
         # the config's filename is the run name, so the two can never drift
         run_name=args.config,
     )

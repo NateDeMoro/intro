@@ -1,0 +1,15 @@
+# working config for this model family -- edit in place; wandb keeps the history of every run
+model: random_forest
+# optional features to switch on -- valid names are the keys of OPTIONAL_FEATURES in preprocessing.py
+features: [male_x_3rdclass, under10, family_group]
+# no `scale:` -- trees split on thresholds, so feature magnitude is irrelevant to them
+params:
+  n_estimators: 100
+  random_state: 42
+
+# uncomment to sweep; min_samples_leaf and max_features are the levers that matter here
+# n_iter: 30
+# search:
+#   max_depth: [3, 5, 8, 12, null]
+#   min_samples_leaf: [1, 2, 5, 10, 20]
+#   max_features: [0.3, 0.5, 0.7, 1.0]

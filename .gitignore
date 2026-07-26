@@ -8,3 +8,6 @@ wheels/
 
 # Virtual environments
 .venv
+
+# wandb run logs -- the runs live on wandb.ai, these local copies are just cache
+wandb/

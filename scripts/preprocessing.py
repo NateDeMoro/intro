@@ -93,12 +93,28 @@ class ChildFlagAdder(BaseEstimator, TransformerMixin):
         return X
 
 
+# bucket family size (SibSp + Parch + self) into alone / 2-4 / 5+ -- survival by family size
+# is an inverted U in explore.ipynb, so a linear term cancels out where the buckets don't.
+# alone is the reference level: both flags are 0 for it
+class FamilyGroupAdder(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X = X.copy()
+        family_size = X["SibSp"] + X["Parch"] + 1
+        X["FamilySmall"] = family_size.between(2, 4).astype(int)
+        X["FamilyLarge"] = (family_size >= 5).astype(int)
+        return X
+
+
 # ## Pipeline
 
 # engineered features a config can switch on by name via its `features` list
 OPTIONAL_FEATURES = {
     "male_x_3rdclass": InteractionFeatureAdder,
     "under10": ChildFlagAdder,
+    "family_group": FamilyGroupAdder,
 }
 
 
