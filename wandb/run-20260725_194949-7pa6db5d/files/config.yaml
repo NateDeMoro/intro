@@ -1,0 +1,46 @@
+_wandb:
+    value:
+        cli_version: 0.28.1
+        e:
+            qvzs1rv974ejq8sjzcngzm19sdhzo0dg:
+                args:
+                    - random_forest_pclass_onehot_interaction
+                codePath: .venv/bin/train
+                codePathLocal: .venv/bin/train
+                email: nathanieldemoro@gmail.com
+                executable: /Users/natedemoro/Code/MLE/intro/.venv/bin/python3
+                git:
+                    commit: 7589c4a4f40336e0fe340a5b72d0b76405aa6756
+                    remote: https://github.com/NateDeMoro/intro.git
+                host: Nates-MacBook-Air.local
+                os: macOS-26.5.2-arm64-arm-64bit
+                program: /Users/natedemoro/Code/MLE/intro/.venv/bin/train
+                python: CPython 3.11.15
+                root: /Users/natedemoro/Code/MLE/intro
+                startedAt: "2026-07-26T02:49:49.621160Z"
+                writerId: qvzs1rv974ejq8sjzcngzm19sdhzo0dg
+        m: []
+        python_version: 3.11.15
+        t:
+            "1":
+                - 5
+                - 53
+            "2":
+                - 5
+                - 53
+            "3":
+                - 2
+                - 13
+                - 16
+            "4": 3.11.15
+            "5": 0.28.1
+            "12": 0.28.1
+            "13": darwin-arm64
+features:
+    value: pclass_onehot+male_x_3rdclass
+model:
+    value: random_forest
+n_estimators:
+    value: 100
+random_state:
+    value: 42

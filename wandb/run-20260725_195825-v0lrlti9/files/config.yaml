@@ -1,0 +1,46 @@
+_wandb:
+    value:
+        cli_version: 0.28.1
+        e:
+            93d719xsbgqxxnw2h6dkfqtglut6vcz1:
+                args:
+                    - logreg-pclass-interaction-under10
+                codePath: .venv/bin/train
+                codePathLocal: .venv/bin/train
+                email: nathanieldemoro@gmail.com
+                executable: /Users/natedemoro/Code/MLE/intro/.venv/bin/python3
+                git:
+                    commit: 7589c4a4f40336e0fe340a5b72d0b76405aa6756
+                    remote: https://github.com/NateDeMoro/intro.git
+                host: Nates-MacBook-Air.local
+                os: macOS-26.5.2-arm64-arm-64bit
+                program: /Users/natedemoro/Code/MLE/intro/.venv/bin/train
+                python: CPython 3.11.15
+                root: /Users/natedemoro/Code/MLE/intro
+                startedAt: "2026-07-26T02:58:25.222087Z"
+                writerId: 93d719xsbgqxxnw2h6dkfqtglut6vcz1
+        m: []
+        python_version: 3.11.15
+        t:
+            "1":
+                - 5
+                - 53
+            "2":
+                - 5
+                - 53
+            "3":
+                - 2
+                - 13
+                - 16
+            "4": 3.11.15
+            "5": 0.28.1
+            "12": 0.28.1
+            "13": darwin-arm64
+features:
+    value:
+        - male_x_3rdclass
+        - under10
+max_iter:
+    value: 1000
+model:
+    value: logistic_regression

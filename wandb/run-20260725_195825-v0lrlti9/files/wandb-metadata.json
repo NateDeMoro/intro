@@ -1,0 +1,20 @@
+{
+  "os":  "macOS-26.5.2-arm64-arm-64bit",
+  "python":  "CPython 3.11.15",
+  "startedAt":  "2026-07-26T02:58:25.222087Z",
+  "args":  [
+    "logreg-pclass-interaction-under10"
+  ],
+  "program":  "/Users/natedemoro/Code/MLE/intro/.venv/bin/train",
+  "codePath":  ".venv/bin/train",
+  "codePathLocal":  ".venv/bin/train",
+  "git":  {
+    "remote":  "https://github.com/NateDeMoro/intro.git",
+    "commit":  "7589c4a4f40336e0fe340a5b72d0b76405aa6756"
+  },
+  "email":  "nathanieldemoro@gmail.com",
+  "root":  "/Users/natedemoro/Code/MLE/intro",
+  "host":  "Nates-MacBook-Air.local",
+  "executable":  "/Users/natedemoro/Code/MLE/intro/.venv/bin/python3",
+  "writerId":  "93d719xsbgqxxnw2h6dkfqtglut6vcz1"
+}

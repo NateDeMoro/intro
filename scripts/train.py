@@ -46,9 +46,10 @@ def main():
 
     model_cls = MODELS[config["model"]]
     params = config.get("params", {})
+    features = config.get("features", [])
     pipeline = Pipeline(
         [
-            ("preprocessing", build_preprocessing_pipeline()),
+            ("preprocessing", build_preprocessing_pipeline(features)),
             ("model", model_cls(**params)),
         ]
     )
@@ -64,7 +65,7 @@ def main():
     log_cv_results(
         cv_results,
         project="titanic",
-        config={"model": config["model"], **params, "features": config.get("features")},
+        config={"model": config["model"], **params, "features": features},
         # the config's filename is the run name, so the two can never drift
         run_name=args.config,
     )

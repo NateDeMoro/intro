@@ -15,9 +15,7 @@
 
 # # Preprocessing Pipeline
 #
-# This notebook is paired with `preprocessing.py` via Jupytext — edit either one, then run `uv run jupytext --sync preprocessing.ipynb` to push the change to the other. `train.py` and `explore.ipynb` both import from `preprocessing.py`, so any change made here is picked up automatically the next time `train.py` runs.
-#
-# This notebook only holds cleaning/feature logic (Transformer classes) — no EDA, no plots. `explore.ipynb` stays separate for that.
+# Cleaning and feature logic only — no EDA. Paired to `scripts/preprocessing.py` via Jupytext, which `train.py` and `explore.ipynb` both import from.
 
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
@@ -25,10 +23,9 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
 
-# ## ColumnDropper
-#
-# Drops a fixed list of columns. Nothing to learn from data, so `fit()` is a no-op — it just has to exist to satisfy sklearn's Transformer interface.
+# ## Transformers
 
+# drop columns with no predictive value
 class ColumnDropper(BaseEstimator, TransformerMixin):
     def __init__(self, columns):
         self.columns = columns
@@ -40,10 +37,7 @@ class ColumnDropper(BaseEstimator, TransformerMixin):
         return X.drop(columns=self.columns)
 
 
-# ## SexEncoder
-#
-# Maps Sex from "female"/"male" text to 0/1. Deterministic, so `fit()` is again a no-op.
-
+# map Sex from text to 0/1
 class SexEncoder(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         return self
@@ -54,10 +48,8 @@ class SexEncoder(BaseEstimator, TransformerMixin):
         return X
 
 
-# ## GroupStatImputer
-#
-# Fills missing values in `target_col` using `stat` (e.g. `"median"`, or a mode lambda) computed per `group_cols`. `fit()` only looks at whatever data it's given — inside a cross-validation fold, that's the fold's training split only — so the same fitted values get applied to that fold's held-out split in `transform()`, avoiding leakage between them.
-
+# fill target_col with a per-group stat; fit() sees only the rows it's given,
+# so inside a CV fold it never learns from that fold's held-out rows
 class GroupStatImputer(BaseEstimator, TransformerMixin):
     def __init__(self, group_cols, target_col, stat):
         self.group_cols = group_cols
@@ -79,10 +71,7 @@ class GroupStatImputer(BaseEstimator, TransformerMixin):
         return merged.drop(columns=["_fill_value"])
 
 
-# ## InteractionFeatureAdder
-#
-# Adds `Male_and_3rdClass`, the one interaction the statsmodels check in `explore.ipynb` found statistically significant. Deterministic given Sex/Pclass, so `fit()` is a no-op.
-
+# flag the one Sex x Pclass interaction that tested significant in explore.ipynb
 class InteractionFeatureAdder(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         return self
@@ -93,11 +82,34 @@ class InteractionFeatureAdder(BaseEstimator, TransformerMixin):
         return X
 
 
-# ## build_preprocessing_pipeline
-#
-# Everything from a raw Titanic DataFrame (minus `Survived`) to model-ready features, as one `Pipeline`. Every step's `fit()` only uses whatever data it's given — the whole pipeline can be handed directly to `cross_validate()` and each fold refits it correctly on that fold's training data alone.
+# flag passengers under 10 -- the age histogram in explore.ipynb shows a survival spike there
+class ChildFlagAdder(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
 
-def build_preprocessing_pipeline():
+    def transform(self, X):
+        X = X.copy()
+        X["Under10"] = (X["Age"] < 10).astype(int)
+        return X
+
+
+# ## Pipeline
+
+# engineered features a config can switch on by name via its `features` list
+OPTIONAL_FEATURES = {
+    "male_x_3rdclass": InteractionFeatureAdder,
+    "under10": ChildFlagAdder,
+}
+
+
+# raw DataFrame -> model-ready features; safe to hand straight to cross_validate()
+def build_preprocessing_pipeline(features=()):
+    unknown = set(features) - set(OPTIONAL_FEATURES)
+    if unknown:
+        raise ValueError(
+            f"unknown feature(s) {sorted(unknown)}; valid: {sorted(OPTIONAL_FEATURES)}"
+        )
+
     one_hot = ColumnTransformer(
         transformers=[
             (
@@ -111,28 +123,29 @@ def build_preprocessing_pipeline():
     )
     one_hot.set_output(transform="pandas")
 
-    return Pipeline(
-        [
-            (
-                "drop_columns",
-                ColumnDropper(["PassengerId", "Name", "Ticket", "Cabin"]),
+    steps = [
+        (
+            "drop_columns",
+            ColumnDropper(["PassengerId", "Name", "Ticket", "Cabin"]),
+        ),
+        ("encode_sex", SexEncoder()),
+        (
+            "impute_age",
+            GroupStatImputer(
+                group_cols=["Pclass", "Sex"], target_col="Age", stat="median"
             ),
-            ("encode_sex", SexEncoder()),
-            (
-                "impute_age",
-                GroupStatImputer(
-                    group_cols=["Pclass", "Sex"], target_col="Age", stat="median"
-                ),
+        ),
+        (
+            "impute_embarked",
+            GroupStatImputer(
+                group_cols=["Pclass"],
+                target_col="Embarked",
+                stat=lambda s: s.mode().iloc[0],
             ),
-            (
-                "impute_embarked",
-                GroupStatImputer(
-                    group_cols=["Pclass"],
-                    target_col="Embarked",
-                    stat=lambda s: s.mode().iloc[0],
-                ),
-            ),
-            ("add_interaction", InteractionFeatureAdder()),
-            ("one_hot_encode", one_hot),
-        ]
-    )
+        ),
+    ]
+    # after imputation so Age is already filled, before one-hot so the new columns pass through
+    steps += [(f"add_{name}", OPTIONAL_FEATURES[name]()) for name in features]
+    steps.append(("one_hot_encode", one_hot))
+
+    return Pipeline(steps)
