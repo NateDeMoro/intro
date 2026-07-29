@@ -1,7 +1,7 @@
 # working config for this model family -- edit in place; wandb keeps the history of every run
 model: random_forest
 # optional features to switch on -- valid names are the keys of OPTIONAL_FEATURES in preprocessing.py
-features: [male_x_3rdclass, under10, family_group]
+features: [male_x_3rdclass, is_master, family_group]
 # no `scale:` -- trees split on thresholds, so feature magnitude is irrelevant to them
 params:
   n_estimators: 100

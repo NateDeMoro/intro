@@ -37,6 +37,25 @@ class ColumnDropper(BaseEstimator, TransformerMixin):
         return X.drop(columns=self.columns)
 
 
+# pull the honorific out of Name ("Braund, Mr. Owen Harris" -> "Mr"). Title is a working
+# column, not a feature: impute_age groups on it and drop_title removes it before one-hot
+class TitleAdder(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X = X.copy()
+        title = (
+            X["Name"]
+            .str.extract(r",\s*([^\.]+)\.", expand=False)
+            .str.strip()
+            .replace({"Mlle": "Miss", "Ms": "Miss", "Mme": "Mrs"})
+        )
+        # Dr/Rev/Col/Lady/... are ~2% of rows between them, too thin to fit individually
+        X["Title"] = title.where(title.isin(["Mr", "Mrs", "Miss", "Master"]), "Rare")
+        return X
+
+
 # map Sex from text to 0/1
 class SexEncoder(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
@@ -46,6 +65,19 @@ class SexEncoder(BaseEstimator, TransformerMixin):
         X = X.copy()
         X["Sex"] = X["Sex"].map({"female": 0, "male": 1})
         return X
+
+
+# replace Cabin with a 0/1 "was a cabin recorded" flag -- the value is 77% missing, but
+# explore.ipynb shows the missingness itself carries signal (70% vs 29% survival, and it
+# holds inside every Pclass, p=0.001 controlling for Pclass, Sex and Fare)
+class CabinFlagEncoder(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X = X.copy()
+        X["HasCabin"] = X["Cabin"].notna().astype(int)
+        return X.drop(columns=["Cabin"])
 
 
 # fill target_col with a per-group stat; fit() sees only the rows it's given,
@@ -63,11 +95,15 @@ class GroupStatImputer(BaseEstimator, TransformerMixin):
             .rename("_fill_value")
             .reset_index()
         )
+        # a group can be all-NaN, or absent from the fold we fit on -- both leave the merge
+        # below with nothing to fill from, so keep an ungrouped stat as the backstop
+        self.global_stat_ = X[self.target_col].agg(self.stat)
         return self
 
     def transform(self, X):
         merged = X.merge(self.group_stats_, on=self.group_cols, how="left")
         merged[self.target_col] = merged[self.target_col].fillna(merged["_fill_value"])
+        merged[self.target_col] = merged[self.target_col].fillna(self.global_stat_)
         return merged.drop(columns=["_fill_value"])
 
 
@@ -79,6 +115,19 @@ class InteractionFeatureAdder(BaseEstimator, TransformerMixin):
     def transform(self, X):
         X = X.copy()
         X["Male_and_3rdClass"] = ((X["Sex"] == 1) & (X["Pclass"] == 3)).astype(int)
+        return X
+
+
+# flag boys -- "Master" was the period's honorific for a child male. explore_remaining.ipynb
+# has this beating Under10 head to head: it reads the name rather than the age, so it still
+# catches a boy whose Age was missing and got imputed to the adult median
+class MasterFlagAdder(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X = X.copy()
+        X["IsMaster"] = (X["Title"] == "Master").astype(int)
         return X
 
 
@@ -113,6 +162,7 @@ class FamilyGroupAdder(BaseEstimator, TransformerMixin):
 # engineered features a config can switch on by name via its `features` list
 OPTIONAL_FEATURES = {
     "male_x_3rdclass": InteractionFeatureAdder,
+    "is_master": MasterFlagAdder,
     "under10": ChildFlagAdder,
     "family_group": FamilyGroupAdder,
 }
@@ -140,13 +190,19 @@ def build_preprocessing_pipeline(features=()):
     one_hot.set_output(transform="pandas")
 
     steps = [
+        # before drop_columns, which is where Name goes
+        ("add_title", TitleAdder()),
         (
             "drop_columns",
-            ColumnDropper(["PassengerId", "Name", "Ticket", "Cabin"]),
+            ColumnDropper(["PassengerId", "Name", "Ticket"]),
         ),
         ("encode_sex", SexEncoder()),
+        ("encode_cabin", CabinFlagEncoder()),
         (
             "impute_age",
+            # grouping on Title instead of Sex ages the missing-age boys correctly (~4 rather
+            # than ~26), but explore_remaining.ipynb shows it costs accuracy once is_master is
+            # on -- the imputed age then duplicates the flag and the trees lose a split
             GroupStatImputer(
                 group_cols=["Pclass", "Sex"], target_col="Age", stat="median"
             ),
@@ -159,9 +215,20 @@ def build_preprocessing_pipeline(features=()):
                 stat=lambda s: s.mode().iloc[0],
             ),
         ),
+        (
+            # train.csv has no gaps here, but test.csv has one -- and a NaN reaching
+            # LogisticRegression is an exception rather than a bad prediction
+            "impute_fare",
+            GroupStatImputer(
+                group_cols=["Pclass"], target_col="Fare", stat="median"
+            ),
+        ),
     ]
     # after imputation so Age is already filled, before one-hot so the new columns pass through
     steps += [(f"add_{name}", OPTIONAL_FEATURES[name]()) for name in features]
+    # Title has done its work by here -- as a string column it would survive one-hot's
+    # passthrough and hand the model text
+    steps.append(("drop_title", ColumnDropper(["Title"])))
     steps.append(("one_hot_encode", one_hot))
 
     return Pipeline(steps)

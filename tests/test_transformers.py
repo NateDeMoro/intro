@@ -1,0 +1,209 @@
+"""Unit tests for each transformer in isolation.
+
+Every case here is one a silent bug could pass: a wrong title regex, a flipped Sex
+encoding, or an off-by-one family bucket all produce a valid frame and a slightly
+worse CV score, never an exception. Checking the numbers by hand is the only way to
+catch them.
+"""
+
+import pandas as pd
+import pytest
+from preprocessing import (
+    CabinFlagEncoder,
+    ChildFlagAdder,
+    ColumnDropper,
+    FamilyGroupAdder,
+    GroupStatImputer,
+    InteractionFeatureAdder,
+    MasterFlagAdder,
+    SexEncoder,
+    TitleAdder,
+)
+
+# ## ColumnDropper
+
+
+def test_column_dropper_removes_only_named_columns(raw):
+    out = ColumnDropper(["PassengerId", "Name", "Ticket"]).fit_transform(raw)
+    assert not {"PassengerId", "Name", "Ticket"} & set(out.columns)
+    assert {"Pclass", "Sex", "Age", "Fare"} <= set(out.columns)
+    assert len(out) == len(raw)
+
+
+# ## TitleAdder
+
+
+def test_title_adder_extracts_and_collapses_honorifics(raw):
+    out = TitleAdder().fit_transform(raw)
+    # Mlle/Ms -> Miss and Mme -> Mrs are the collapses; Dr falls into Rare
+    assert out["Title"].tolist() == [
+        "Mr",
+        "Mrs",
+        "Miss",
+        "Master",
+        "Rare",
+        "Mrs",
+        "Miss",
+        "Mr",
+    ]
+
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        ("Braund, Mr. Owen Harris", "Mr"),
+        ("Cumings, Mrs. John Bradley", "Mrs"),
+        ("Bonnell, Miss. Elizabeth", "Miss"),
+        ("Palsson, Master. Gosta", "Master"),
+        # the four spellings that get folded into an existing bucket
+        ("Bonnell, Mlle. Elizabeth", "Miss"),
+        ("Laroche, Ms. Simonne", "Miss"),
+        ("Nasser, Mme. Nicholas", "Mrs"),
+        # too thin to fit individually -- all of these become Rare
+        ("Minahan, Dr. William", "Rare"),
+        ("Byles, Rev. Thomas", "Rare"),
+        ("Duff Gordon, Lady. Lucy", "Rare"),
+        ("Weir, Col. John", "Rare"),
+        # a surname containing a comma still resolves to the honorific after the last one
+        ("Rothes, the Countess. of Lucy", "Rare"),
+    ],
+)
+def test_title_adder_single_names(name, expected):
+    df = pd.DataFrame({"Name": [name]})
+    assert TitleAdder().fit_transform(df)["Title"].iloc[0] == expected
+
+
+def test_title_adder_does_not_mutate_input(raw):
+    before = raw.copy()
+    TitleAdder().fit_transform(raw)
+    pd.testing.assert_frame_equal(raw, before)
+
+
+# ## SexEncoder
+
+
+def test_sex_encoder_maps_female_to_zero(raw):
+    out = SexEncoder().fit_transform(raw)
+    # the direction matters: InteractionFeatureAdder tests `Sex == 1` for male
+    assert out["Sex"].tolist() == [1, 0, 0, 1, 1, 0, 0, 1]
+
+
+# ## CabinFlagEncoder
+
+
+def test_cabin_flag_encoder_flags_presence_and_drops_the_column(raw):
+    out = CabinFlagEncoder().fit_transform(raw)
+    assert "Cabin" not in out.columns
+    assert out["HasCabin"].tolist() == [1, 1, 0, 0, 1, 0, 0, 0]
+
+
+# ## GroupStatImputer
+
+
+def test_group_stat_imputer_fills_from_the_group_median(raw):
+    out = GroupStatImputer(
+        group_cols=["Pclass", "Sex"], target_col="Age", stat="median"
+    ).fit_transform(raw)
+    assert out["Age"].notna().all()
+    # row 2 is Pclass 3 / female. The only other 3/female row is index 7? no -- row 7 is
+    # male. With no other 3/female age present the group median is NaN, so the global
+    # median (of 22, 38, 44, 14, 3, 30) backstops it
+    assert out.loc[2, "Age"] == raw["Age"].median()
+    # row 3 is Pclass 3 / male; row 7 is the other one, age 30
+    assert out.loc[3, "Age"] == 30.0
+
+
+def test_group_stat_imputer_falls_back_when_the_group_is_absent_at_transform_time():
+    """A CV fold can fit on rows that never contain some group. The merge then finds
+    nothing to fill from, and the global stat has to cover it."""
+    fit_frame = pd.DataFrame({"Pclass": [1, 1], "Age": [40.0, 20.0]})
+    imputer = GroupStatImputer(group_cols=["Pclass"], target_col="Age", stat="median")
+    imputer.fit(fit_frame)
+
+    # Pclass 3 was never seen during fit
+    unseen = pd.DataFrame({"Pclass": [3], "Age": [None]})
+    assert (
+        imputer.transform(unseen)["Age"].iloc[0] == 30.0
+    )  # global median of 40 and 20
+
+
+def test_group_stat_imputer_learns_only_in_fit():
+    """The leak guard. If transform recomputed the statistic from the frame it is given,
+    the held-out fold would be filling its own gaps with its own values."""
+    fit_frame = pd.DataFrame({"Pclass": [1, 1, 1], "Age": [10.0, 10.0, 10.0]})
+    imputer = GroupStatImputer(group_cols=["Pclass"], target_col="Age", stat="median")
+    imputer.fit(fit_frame)
+
+    # this frame's own median would be 999; the fill must come from fit_frame instead
+    held_out = pd.DataFrame({"Pclass": [1, 1, 1], "Age": [999.0, 999.0, None]})
+    assert imputer.transform(held_out)["Age"].iloc[2] == 10.0
+
+
+def test_group_stat_imputer_preserves_row_order():
+    """transform() merges, which resets the index. Order is what keeps rows aligned with
+    y inside cross_validate, so it is the property worth pinning down."""
+    fit_frame = pd.DataFrame({"Pclass": [1, 2, 3], "Age": [40.0, 30.0, 20.0]})
+    imputer = GroupStatImputer(group_cols=["Pclass"], target_col="Age", stat="median")
+    imputer.fit(fit_frame)
+
+    scrambled = pd.DataFrame(
+        {"Pclass": [3, 1, 2, 3], "Age": [None, 5.0, None, 7.0], "Marker": list("abcd")}
+    )
+    out = imputer.transform(scrambled)
+    assert out["Marker"].tolist() == list("abcd")
+    assert out["Age"].tolist() == [20.0, 5.0, 30.0, 7.0]
+
+
+def test_group_stat_imputer_handles_a_mode_statistic(raw):
+    """Embarked is filled with a mode rather than a median, via a lambda."""
+    out = GroupStatImputer(
+        group_cols=["Pclass"], target_col="Embarked", stat=lambda s: s.mode().iloc[0]
+    ).fit_transform(raw)
+    assert out["Embarked"].notna().all()
+    # row 4 is the missing one, Pclass 2; the other Pclass 2 row embarked at C
+    assert out.loc[4, "Embarked"] == "C"
+
+
+# ## Optional feature transformers
+
+
+def test_interaction_feature_adder_needs_encoded_sex(raw):
+    # Sex must already be 0/1 -- the flag tests `Sex == 1`, which is never true for text
+    encoded = SexEncoder().fit_transform(raw)
+    out = InteractionFeatureAdder().fit_transform(encoded)
+    # only rows 3 and 7 are male and in 3rd class
+    assert out["Male_and_3rdClass"].tolist() == [0, 0, 0, 1, 0, 0, 0, 1]
+
+
+def test_master_flag_adder_reads_title_not_age(raw):
+    # row 3 is a Master whose Age is missing -- the point of the flag is that it still
+    # fires without ever consulting Age
+    titled = TitleAdder().fit_transform(raw)
+    out = MasterFlagAdder().fit_transform(titled)
+    assert out["IsMaster"].tolist() == [0, 0, 0, 1, 0, 0, 0, 0]
+    assert pd.isna(out.loc[3, "Age"])
+
+
+def test_child_flag_adder_uses_a_strict_under_ten(raw):
+    out = ChildFlagAdder().fit_transform(raw)
+    # only row 6 (age 3) qualifies; the missing ages are NaN < 10, which is False
+    assert out["Under10"].tolist() == [0, 0, 0, 0, 0, 0, 1, 0]
+
+
+@pytest.mark.parametrize(
+    "sibsp, parch, small, large",
+    [
+        (0, 0, 0, 0),  # alone -- the reference level, both flags off
+        (1, 0, 1, 0),  # family of 2, lower edge of small
+        (2, 1, 1, 0),  # family of 4, upper edge of small
+        (3, 1, 0, 1),  # family of 5, lower edge of large
+        (8, 2, 0, 1),
+    ],
+)
+def test_family_group_adder_bucket_edges(sibsp, parch, small, large):
+    df = pd.DataFrame({"SibSp": [sibsp], "Parch": [parch]})
+    out = FamilyGroupAdder().fit_transform(df)
+    assert out["FamilySmall"].iloc[0] == small
+    assert out["FamilyLarge"].iloc[0] == large
+    # the buckets are exclusive -- a passenger is alone, small, or large, never two
+    assert out["FamilySmall"].iloc[0] + out["FamilyLarge"].iloc[0] <= 1

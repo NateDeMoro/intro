@@ -1,0 +1,13 @@
+# same model and params as gradient_boosting.yaml, with every optional feature switched off --
+# so the difference between the two runs is exactly what the engineered features are worth.
+# still present, because they are cleaning rather than optional features: HasCabin, and raw
+# SibSp/Parch (the family buckets are built from them, but the columns themselves always pass through)
+model: gradient_boosting
+features: []
+# no `scale:` -- trees split on thresholds, so feature magnitude is irrelevant to them
+params:
+  learning_rate: 0.05
+  max_iter: 300
+  max_leaf_nodes: 8
+  min_samples_leaf: 20
+  random_state: 42

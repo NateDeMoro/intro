@@ -27,7 +27,14 @@ train = "train:main"
 [dependency-groups]
 dev = [
     "jupytext>=1.19.5",
+    "pytest>=9.0.1",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# import the transformers from scripts/ directly rather than through the editable
+# install, so the tests exercise the working copy even if the install is stale
+pythonpath = ["scripts"]
 
 [build-system]
 requires = ["hatchling"]

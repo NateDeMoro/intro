@@ -9,11 +9,13 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import (
     GridSearchCV,
     RandomizedSearchCV,
+    RepeatedStratifiedKFold,
     StratifiedKFold,
     cross_validate,
 )
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from sklearn.tree import DecisionTreeClassifier
 
 from ml_utils import log_cv_results
 from preprocessing import build_preprocessing_pipeline
@@ -22,6 +24,9 @@ MODELS = {
     "logistic_regression": LogisticRegression,
     "random_forest": RandomForestClassifier,
     "gradient_boosting": HistGradientBoostingClassifier,
+    # at max_depth 1 this is the "all women survive" rule, learned rather than hardcoded:
+    # Sex is the strongest single split in the data, so the stump finds it on its own
+    "decision_stump": DecisionTreeClassifier,
 }
 
 # anchor paths to the project root rather than the shell's cwd, so the command
@@ -92,8 +97,12 @@ def main():
 
     # each fold refits the whole pipeline -- including preprocessing -- on that
     # fold's training portion alone, so imputation/encoding never sees that
-    # fold's held-out rows
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    # fold's held-out rows.
+    # repeated because a single 5-way cut of 891 rows is worth about +/- 1pp of pure
+    # shuffle luck -- enough to have made gradient_boosting look 0.9pp better than
+    # logistic_regression when 10 repeats put them level. 50 fits, seconds each; with a
+    # `search:` block it multiplies by the sweep size, so drop n_repeats when sweeping
+    cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=10, random_state=42)
     cv_results = cross_validate(
         estimator, X, y, cv=cv, scoring=["accuracy", "precision", "recall", "f1"]
     )

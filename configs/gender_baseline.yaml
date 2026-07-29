@@ -1,0 +1,10 @@
+# the control, not a candidate. a depth-1 tree splits on Sex and nothing else, which makes it
+# exactly the "all women survive" rule -- the number every other config should be read against.
+# it scores 0.7868 on train.csv, so a config claiming 0.83 is claiming +4.5pp over guessing by sex
+model: decision_stump
+# no engineered features: the point is to measure what everything else is worth on top of this
+features: []
+# no `scale:` -- a tree splits on thresholds
+params:
+  max_depth: 1
+  random_state: 42
