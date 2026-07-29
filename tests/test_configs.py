@@ -15,7 +15,7 @@ from train import CONFIG_DIR, MODELS
 CONFIG_PATHS = sorted(CONFIG_DIR.glob("*.yaml"))
 CONFIG_NAMES = [path.stem for path in CONFIG_PATHS]
 
-KNOWN_KEYS = {"model", "features", "params", "scale", "search", "n_iter"}
+KNOWN_KEYS = {"model", "features", "params", "scale", "search", "n_iter", "keep"}
 
 
 @pytest.fixture(params=CONFIG_PATHS, ids=CONFIG_NAMES)
@@ -67,7 +67,10 @@ def test_config_builds_a_pipeline_that_fits(config, train_df, train_labels):
     """Assembles the config exactly the way train.py does and fits it once. Catches a
     feature/model combination that only fails on contact with the data."""
     steps = [
-        ("preprocessing", build_preprocessing_pipeline(config.get("features", [])))
+        (
+            "preprocessing",
+            build_preprocessing_pipeline(config.get("features", []), config.get("keep")),
+        )
     ]
     if config.get("scale"):
         steps.append(("scale", StandardScaler()))
@@ -77,6 +80,21 @@ def test_config_builds_a_pipeline_that_fits(config, train_df, train_labels):
     predictions = fitted.predict(train_df)
     assert len(predictions) == len(train_df)
     assert set(predictions) <= {0, 1}
+
+
+def test_keep_names_columns_the_pipeline_produces(config, train_df, train_labels):
+    """A typo in `keep` is the one config error that survives every check above -- it builds,
+    it just quietly hands the model a different set of columns or raises deep in a CV run."""
+    keep = config.get("keep")
+    if not keep:
+        pytest.skip("config does not restrict columns")
+    available = build_preprocessing_pipeline(
+        config.get("features", [])
+    ).fit_transform(train_df, train_labels)
+    assert set(keep) <= set(available.columns), (
+        f"keep names {sorted(set(keep) - set(available.columns))}, "
+        f"which this config's pipeline does not produce"
+    )
 
 
 def test_scaling_is_only_requested_for_models_that_need_it(config):

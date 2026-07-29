@@ -61,7 +61,7 @@ def main():
     features = config.get("features", [])
     search = config.get("search", {})
 
-    steps = [("preprocessing", build_preprocessing_pipeline(features))]
+    steps = [("preprocessing", build_preprocessing_pipeline(features, config.get("keep")))]
     if config.get("scale"):
         # only meaningful for models that care about feature magnitude (linear ones);
         # fitted per fold by cross_validate, so it can't leak

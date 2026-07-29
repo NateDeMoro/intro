@@ -12,7 +12,9 @@ from preprocessing import (
     CabinFlagEncoder,
     ChildFlagAdder,
     ColumnDropper,
+    ColumnKeeper,
     FamilyGroupAdder,
+    Female3rdLargeFamilyAdder,
     GroupStatImputer,
     InteractionFeatureAdder,
     MasterFlagAdder,
@@ -28,6 +30,31 @@ def test_column_dropper_removes_only_named_columns(raw):
     assert not {"PassengerId", "Name", "Ticket"} & set(out.columns)
     assert {"Pclass", "Sex", "Age", "Fare"} <= set(out.columns)
     assert len(out) == len(raw)
+
+
+# ## ColumnKeeper
+
+
+def test_column_keeper_selects_in_the_order_given(raw):
+    out = ColumnKeeper(["Fare", "Pclass"]).fit_transform(raw)
+    assert out.columns.tolist() == ["Fare", "Pclass"]
+    assert len(out) == len(raw)
+
+
+def test_column_keeper_reports_itself_as_fitted(raw):
+    """ColumnKeeper is the last step of the pipeline when `keep:` is set, and sklearn asks
+    the final step whether a Pipeline is fitted. A stateless transformer there makes
+    pipeline.predict() raise NotFittedError after a successful fit."""
+    from sklearn.utils.validation import check_is_fitted
+
+    check_is_fitted(ColumnKeeper(["Fare"]).fit(raw))
+
+
+def test_column_keeper_names_the_missing_column(raw):
+    # the failure mode this guards against is a typo'd `keep:` entry silently handing the
+    # model the wrong columns, so the error has to say which name was wrong
+    with pytest.raises(KeyError, match="Embarked_S"):
+        ColumnKeeper(["Sex", "Embarked_S"]).fit_transform(raw)
 
 
 # ## TitleAdder
@@ -173,6 +200,28 @@ def test_interaction_feature_adder_needs_encoded_sex(raw):
     out = InteractionFeatureAdder().fit_transform(encoded)
     # only rows 3 and 7 are male and in 3rd class
     assert out["Male_and_3rdClass"].tolist() == [0, 0, 0, 1, 0, 0, 0, 1]
+
+
+@pytest.mark.parametrize(
+    "sex, pclass, sibsp, parch, expected",
+    [
+        (0, 3, 4, 0, 1),  # 3rd-class woman, family of exactly 5 -- the lower edge
+        (0, 3, 8, 2, 1),
+        (0, 3, 2, 1, 0),  # family of 4, one short
+        (0, 1, 4, 0, 0),  # the class restriction: 1st-class women all survived
+        (0, 2, 4, 0, 0),
+        (1, 3, 4, 0, 0),  # a man in the same family is not the same passenger
+    ],
+)
+def test_female_3rd_large_family_adder_needs_all_three_conditions(
+    sex, pclass, sibsp, parch, expected
+):
+    # Sex must already be encoded -- the flag tests `Sex == 0`, never true for text
+    df = pd.DataFrame(
+        {"Sex": [sex], "Pclass": [pclass], "SibSp": [sibsp], "Parch": [parch]}
+    )
+    out = Female3rdLargeFamilyAdder().fit_transform(df)
+    assert out["Female_3rd_LargeFamily"].iloc[0] == expected
 
 
 def test_master_flag_adder_reads_title_not_age(raw):

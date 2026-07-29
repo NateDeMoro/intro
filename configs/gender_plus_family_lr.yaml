@@ -1,0 +1,18 @@
+# the same model as gender_plus_family.yaml, expressed as a logistic regression on two columns
+# instead of a depth-3 tree. it reproduces the intended rule exactly -- "women survive, except
+# 3rd-class women in a family of 5+" -- where the tree had to grow two extra levels to reach the
+# flag and flipped 8 unrelated rows on the way. measured: 0.8103 here vs 0.8080 for the tree.
+#
+# the coefficients read as the rule: intercept +1.28 (a woman survives), Sex -2.71 and
+# Female_3rd_LargeFamily -2.62 (either one pushes her under zero).
+model: logistic_regression
+features: [female_3rd_largefamily]
+# without this the model would see all 16 columns and stop being a baseline-plus-one-exception.
+# names are post-one-hot, and the coefficients are fitted per fold, so CV still gets a say in
+# whether the exception holds
+keep: [Sex, Female_3rd_LargeFamily]
+# both columns are already 0/1, so this is a no-op -- kept because C penalises coefficient size
+# and the config should not silently change meaning if a continuous column is added to `keep`
+scale: true
+params:
+  max_iter: 1000

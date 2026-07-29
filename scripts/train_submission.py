@@ -36,7 +36,12 @@ def main():
     X = train.drop(columns=["Survived"])
     y = train["Survived"]
 
-    steps = [("preprocessing", build_preprocessing_pipeline(config.get("features", [])))]
+    steps = [
+        (
+            "preprocessing",
+            build_preprocessing_pipeline(config.get("features", []), config.get("keep")),
+        )
+    ]
     if config.get("scale"):
         steps.append(("scale", StandardScaler()))
     steps.append(("model", MODELS[config["model"]](**config.get("params", {}))))

@@ -1,0 +1,12 @@
+# the gender baseline plus one exception: 3rd-class women in a family of 5+ died at 89%.
+# see explore_3rd_class_women.ipynb -- that flag is worth +21 rows on its own, and it is the only
+# signal in the pocket that survives controlling for the others (Embarked=S is a proxy for it).
+model: decision_stump
+features: [female_3rd_largefamily]
+# depth 3, not 2. a greedy tree splits female on Pclass_3 first, which lands on a 144-row 50/50
+# leaf and *costs* 12 rows; it only reaches the family flag one level deeper. measured:
+# depth 1 = 0.7868, depth 2 = 0.7730, depth 3 = 0.8080. min_samples_leaf makes it worse (0.7978)
+# by trading the flag for a losing bet on 1st-class men
+params:
+  max_depth: 3
+  random_state: 42

@@ -37,6 +37,30 @@ class ColumnDropper(BaseEstimator, TransformerMixin):
         return X.drop(columns=self.columns)
 
 
+# keep only the named columns, in the order given. the mirror of ColumnDropper, for when the
+# point is to state what the model may see rather than what it may not -- an sklearn estimator
+# consumes whatever array it is handed, so restricting it has to happen here
+class ColumnKeeper(BaseEstimator, TransformerMixin):
+    def __init__(self, columns):
+        self.columns = columns
+
+    def fit(self, X, y=None):
+        # the trailing underscore is not decoration: this is the last step of the
+        # preprocessing pipeline, and sklearn decides a Pipeline is fitted by asking its
+        # final step. a transformer that sets nothing makes the whole pipeline look unfitted
+        self.columns_ = list(self.columns)
+        return self
+
+    def transform(self, X):
+        missing = [column for column in self.columns if column not in X.columns]
+        if missing:
+            raise KeyError(
+                f"keep names {missing}, which the pipeline does not produce; "
+                f"available: {sorted(X.columns)}"
+            )
+        return X[list(self.columns)]
+
+
 # pull the honorific out of Name ("Braund, Mr. Owen Harris" -> "Mr"). Title is a working
 # column, not a feature: impute_age groups on it and drop_title removes it before one-hot
 class TitleAdder(BaseEstimator, TransformerMixin):
@@ -118,6 +142,24 @@ class InteractionFeatureAdder(BaseEstimator, TransformerMixin):
         return X
 
 
+# the one exception to "women survive": 3rd-class women in a family of 5+ died at 89%, where
+# 3rd-class women overall are an exact coin flip. explore_3rd_class_women.ipynb has it at +21 rows
+# against the gender baseline. it has to be an explicit three-way flag -- a greedy tree splits
+# female on Pclass before it ever reaches family size, and that split lands on a 50/50 leaf.
+# note the 1st/2nd-class restriction is load-bearing: all 6 large-family women up there survived
+class Female3rdLargeFamilyAdder(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X = X.copy()
+        family_size = X["SibSp"] + X["Parch"] + 1
+        X["Female_3rd_LargeFamily"] = (
+            (X["Sex"] == 0) & (X["Pclass"] == 3) & (family_size >= 5)
+        ).astype(int)
+        return X
+
+
 # flag boys -- "Master" was the period's honorific for a child male. explore_remaining.ipynb
 # has this beating Under10 head to head: it reads the name rather than the age, so it still
 # catches a boy whose Age was missing and got imputed to the adult median
@@ -162,14 +204,17 @@ class FamilyGroupAdder(BaseEstimator, TransformerMixin):
 # engineered features a config can switch on by name via its `features` list
 OPTIONAL_FEATURES = {
     "male_x_3rdclass": InteractionFeatureAdder,
+    "female_3rd_largefamily": Female3rdLargeFamilyAdder,
     "is_master": MasterFlagAdder,
     "under10": ChildFlagAdder,
     "family_group": FamilyGroupAdder,
 }
 
 
-# raw DataFrame -> model-ready features; safe to hand straight to cross_validate()
-def build_preprocessing_pipeline(features=()):
+# raw DataFrame -> model-ready features; safe to hand straight to cross_validate().
+# `keep` restricts the output to those columns, which is the only way to hold a model to a
+# subset -- use it to build a deliberately small model rather than to prune a large one
+def build_preprocessing_pipeline(features=(), keep=None):
     unknown = set(features) - set(OPTIONAL_FEATURES)
     if unknown:
         raise ValueError(
@@ -230,5 +275,8 @@ def build_preprocessing_pipeline(features=()):
     # passthrough and hand the model text
     steps.append(("drop_title", ColumnDropper(["Title"])))
     steps.append(("one_hot_encode", one_hot))
+    # last, so `keep` names post-one-hot columns ("Pclass_3", not "Pclass")
+    if keep:
+        steps.append(("keep_columns", ColumnKeeper(keep)))
 
     return Pipeline(steps)
