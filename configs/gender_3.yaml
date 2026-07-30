@@ -1,0 +1,15 @@
+# gender_baseline plus two carve-outs from "women survive". the second one replaced
+# boy_small_family, which scored 22/22 in training and 7/14 on the leaderboard -- see the
+# calibration panel in explore_men.ipynb before reading the numbers below with confidence.
+#   Female_3rd_LargeFamily   3rd-class women in a family of 5+ died at 89%  (+21 rows, 5 test rows)
+#   Female_3rd_YoungSibling  3rd-class women 18-30 with a sibling/spouse    (+9 rows, 14 test rows)
+#
+# note the second flag reads Age *after* impute_age fills it, and the Pclass 3 / female median of
+# 21.5 sits inside the 18-30 band. So it also catches every missing-age 3rd-class woman with
+# SibSp > 0: 29 rows at 35% survival rather than the 12 rows at 17% the raw ages give.
+model: logistic_regression
+features: [female_3rd_largefamily, female_3rd_young_sibling]
+keep: [Sex, Female_3rd_LargeFamily, Female_3rd_YoungSibling]
+scale: true
+params:
+  max_iter: 1000

@@ -160,6 +160,26 @@ class Female3rdLargeFamilyAdder(BaseEstimator, TransformerMixin):
         return X
 
 
+# 3rd-class women aged 18-30 travelling with a sibling or spouse. by raw age this is 12 rows at
+# 17% survival, but note what the pipeline actually hands it: optional features run after
+# impute_age, and the Pclass 3 / female median is 21.5 -- inside the band. So every missing-age
+# 3rd-class woman with SibSp > 0 is swept in too, making it 29 rows at 35%. Same net rows either
+# way (+8 vs +9), different feature. Move this step before impute_age if you want the raw version
+class Female3rdYoungSiblingAdder(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X = X.copy()
+        X["Female_3rd_YoungSibling"] = (
+            (X["Sex"] == 0)
+            & (X["Pclass"] == 3)
+            & X["Age"].between(18, 30)
+            & (X["SibSp"] > 0)
+        ).astype(int)
+        return X
+
+
 # flag boys -- "Master" was the period's honorific for a child male. explore_remaining.ipynb
 # has this beating Under10 head to head: it reads the name rather than the age, so it still
 # catches a boy whose Age was missing and got imputed to the adult median
@@ -170,6 +190,26 @@ class MasterFlagAdder(BaseEstimator, TransformerMixin):
     def transform(self, X):
         X = X.copy()
         X["IsMaster"] = (X["Title"] == "Master").astype(int)
+        return X
+
+
+# the mirror of Female_3rd_LargeFamily, and the stronger half of it: a boy travelling in a family
+# of 2-4 survived 22 times out of 22 in train.csv, across all three classes (3/3, 9/9, 10/10),
+# while boys in families of 5+ went down 17 times out of 18. small families got their children
+# into boats; large ones drowned together. worth +22 rows where a plain IsMaster flag is worth +6,
+# so the family condition is the whole point. see the scan in explore_1st_class_men.ipynb's sibling
+# analysis -- and note gradient_boosting, which has IsMaster and family_group, finds 21 of the 22
+# on its own, which is independent evidence the pattern is not an artifact of searching for it
+class BoySmallFamilyAdder(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X = X.copy()
+        family_size = X["SibSp"] + X["Parch"] + 1
+        X["Boy_SmallFamily"] = (
+            (X["Title"] == "Master") & family_size.between(2, 4)
+        ).astype(int)
         return X
 
 
@@ -205,7 +245,9 @@ class FamilyGroupAdder(BaseEstimator, TransformerMixin):
 OPTIONAL_FEATURES = {
     "male_x_3rdclass": InteractionFeatureAdder,
     "female_3rd_largefamily": Female3rdLargeFamilyAdder,
+    "female_3rd_young_sibling": Female3rdYoungSiblingAdder,
     "is_master": MasterFlagAdder,
+    "boy_small_family": BoySmallFamilyAdder,
     "under10": ChildFlagAdder,
     "family_group": FamilyGroupAdder,
 }

@@ -9,12 +9,14 @@ catch them.
 import pandas as pd
 import pytest
 from preprocessing import (
+    BoySmallFamilyAdder,
     CabinFlagEncoder,
     ChildFlagAdder,
     ColumnDropper,
     ColumnKeeper,
     FamilyGroupAdder,
     Female3rdLargeFamilyAdder,
+    Female3rdYoungSiblingAdder,
     GroupStatImputer,
     InteractionFeatureAdder,
     MasterFlagAdder,
@@ -224,6 +226,32 @@ def test_female_3rd_large_family_adder_needs_all_three_conditions(
     assert out["Female_3rd_LargeFamily"].iloc[0] == expected
 
 
+@pytest.mark.parametrize(
+    "sex, pclass, age, sibsp, expected",
+    [
+        (0, 3, 18.0, 1, 1),  # lower edge of the band
+        (0, 3, 30.0, 1, 1),  # upper edge -- between() is inclusive
+        (0, 3, 17.0, 1, 0),
+        (0, 3, 31.0, 1, 0),
+        (0, 3, 25.0, 0, 0),  # no sibling or spouse aboard
+        (0, 1, 25.0, 1, 0),  # 3rd class only
+        (1, 3, 25.0, 1, 0),  # women only
+    ],
+)
+def test_female_3rd_young_sibling_adder_band_and_conditions(sex, pclass, age, sibsp, expected):
+    df = pd.DataFrame({"Sex": [sex], "Pclass": [pclass], "Age": [age], "SibSp": [sibsp]})
+    out = Female3rdYoungSiblingAdder().fit_transform(df)
+    assert out["Female_3rd_YoungSibling"].iloc[0] == expected
+
+
+def test_female_3rd_young_sibling_adder_does_not_fire_on_missing_age():
+    """In the pipeline this step runs after impute_age, so a missing age arrives as 21.5 and
+    the flag fires. On raw NaN it must not -- pinning that keeps the difference deliberate
+    rather than accidental if the step order ever changes."""
+    df = pd.DataFrame({"Sex": [0], "Pclass": [3], "Age": [None], "SibSp": [1]})
+    assert Female3rdYoungSiblingAdder().fit_transform(df)["Female_3rd_YoungSibling"].iloc[0] == 0
+
+
 def test_master_flag_adder_reads_title_not_age(raw):
     # row 3 is a Master whose Age is missing -- the point of the flag is that it still
     # fires without ever consulting Age
@@ -231,6 +259,34 @@ def test_master_flag_adder_reads_title_not_age(raw):
     out = MasterFlagAdder().fit_transform(titled)
     assert out["IsMaster"].tolist() == [0, 0, 0, 1, 0, 0, 0, 0]
     assert pd.isna(out.loc[3, "Age"])
+
+
+@pytest.mark.parametrize(
+    "title, sibsp, parch, expected",
+    [
+        ("Master", 1, 0, 1),  # family of 2, lower edge of the bucket
+        ("Master", 2, 1, 1),  # family of 4, upper edge
+        ("Master", 0, 0, 0),  # a boy alone is not the same passenger
+        ("Master", 4, 0, 0),  # family of 5 -- these boys mostly died
+        ("Mr", 1, 0, 0),  # an adult man in a small family gains nothing
+        ("Miss", 1, 0, 0),
+    ],
+)
+def test_boy_small_family_adder_needs_the_title_and_the_bucket(title, sibsp, parch, expected):
+    # reads Title, so it must run after TitleAdder and before drop_title
+    df = pd.DataFrame({"Title": [title], "SibSp": [sibsp], "Parch": [parch]})
+    out = BoySmallFamilyAdder().fit_transform(df)
+    assert out["Boy_SmallFamily"].iloc[0] == expected
+
+
+def test_boy_small_family_adder_matches_family_group_buckets(raw):
+    """The 2-4 bucket has to mean the same thing here as in FamilyGroupAdder, or the two
+    features silently disagree about what a small family is."""
+    titled = TitleAdder().fit_transform(raw)
+    boys = BoySmallFamilyAdder().fit_transform(titled)
+    buckets = FamilyGroupAdder().fit_transform(titled)
+    is_master = titled["Title"] == "Master"
+    assert (boys["Boy_SmallFamily"] == (is_master & buckets["FamilySmall"].eq(1))).all()
 
 
 def test_child_flag_adder_uses_a_strict_under_ten(raw):
